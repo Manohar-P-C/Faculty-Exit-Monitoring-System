@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Verify OTP</title>
+<style>
+body{
+background: linear-gradient(120deg,#0f4c81,#1e6bb8,#ff8c00);
+font-family: Arial;
+}
+.card{
+width:400px;
+margin:auto;
+margin-top:150px;
+background:white;
+padding:40px;
+border-radius:15px;
+text-align:center;
+box-shadow:0px 10px 30px rgba(0,0,0,0.3);
+}
+input{
+width:90%;
+padding:10px;
+margin:10px;
+border-radius:5px;
+border:1px solid #ccc;
+}
+button{
+background:#1e6bb8;
+color:white;
+padding:10px 20px;
+border:none;
+border-radius:8px;
+font-size:16px;
+cursor:pointer;
+}
+</style>
+</head>
+<body>
+<div class="card">
+<h2>Verify OTP</h2>
+<p>OTP sent to {{ email }}</p>
+<form method="POST">
+<input type="text" name="otp" placeholder="Enter OTP" required>
+<input type="password" name="new_password" placeholder="Enter New Password" required>
+<br>
+<button type="submit">Reset Password</button>
+</form>
+{% if error %}
+<p style="color:red;">{{error}}</p>
+{% endif %}
+</div>
+</body>
+</html>
