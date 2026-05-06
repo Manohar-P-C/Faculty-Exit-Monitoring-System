@@ -342,7 +342,7 @@ def send_hod_notification_email(faculty_name, department, description, slot, req
         msg['From'] = NOTIFICATION_SENDER_EMAIL
         msg['To'] = hod_email
 
-        server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
+        server = smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=15)
         server.login(NOTIFICATION_SENDER_EMAIL, NOTIFICATION_APP_PASSWORD)
         server.send_message(msg)
         server.quit()
@@ -391,7 +391,7 @@ def send_principal_notification_email(faculty_name, department, description, slo
             msg['From'] = NOTIFICATION_SENDER_EMAIL
             msg['To'] = principal_email
 
-            server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
+            server = smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=15)
             server.login(NOTIFICATION_SENDER_EMAIL, NOTIFICATION_APP_PASSWORD)
             server.send_message(msg)
             server.quit()
@@ -425,7 +425,7 @@ def send_faculty_notification_email(faculty_email, faculty_name, department, slo
         msg['From'] = NOTIFICATION_SENDER_EMAIL
         msg['To'] = faculty_email
 
-        server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
+        server = smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=15)
         server.login(NOTIFICATION_SENDER_EMAIL, NOTIFICATION_APP_PASSWORD)
         server.send_message(msg)
         server.quit()
@@ -460,7 +460,7 @@ def send_return_reminder_email(faculty_email, faculty_name, department, slot, re
         msg['From'] = NOTIFICATION_SENDER_EMAIL
         msg['To'] = faculty_email
 
-        server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
+        server = smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=15)
         server.login(NOTIFICATION_SENDER_EMAIL, NOTIFICATION_APP_PASSWORD)
         server.send_message(msg)
         server.quit()
@@ -506,7 +506,7 @@ def send_late_warning_email(faculty_name, department, slot, deadline, entry_time
             msg['From'] = NOTIFICATION_SENDER_EMAIL
             msg['To'] = principal["email"]
 
-            server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
+            server = smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=15)
             server.login(NOTIFICATION_SENDER_EMAIL, NOTIFICATION_APP_PASSWORD)
             server.send_message(msg)
             server.quit()
@@ -648,6 +648,19 @@ if os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug:
     _auto_reset_thread = threading.Thread(target=auto_reset_scheduler, daemon=True)
     _auto_reset_thread.start()
 
+# -----------------------
+# ERROR HANDLERS
+# -----------------------
+@app.errorhandler(500)
+def internal_error(error):
+    """Log the actual error and show a user-friendly page."""
+    import traceback
+    print(f"[500 ERROR] {error}")
+    traceback.print_exc()
+    return render_template("500.html") if os.path.exists(os.path.join(app.root_path, "templates", "500.html")) else (
+        f"<h1>Something went wrong</h1><p>The server encountered an error. Please try again later.</p><p><a href='/'>Go Home</a></p>", 500
+    )
+
 
 # -----------------------
 # HOME
@@ -708,7 +721,7 @@ def principal_forgot_password():
                 msg['From'] = PRINCIPAL_SENDER_EMAIL
                 msg['To'] = email
 
-                server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
+                server = smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=15)
                 server.login(PRINCIPAL_SENDER_EMAIL, PRINCIPAL_APP_PASSWORD)
                 server.send_message(msg)
                 server.quit()
@@ -783,7 +796,7 @@ def security_forgot_password():
                 msg['From'] = SECURITY_SENDER_EMAIL
                 msg['To'] = email
 
-                server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
+                server = smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=15)
                 server.login(SECURITY_SENDER_EMAIL, SECURITY_APP_PASSWORD)
                 server.send_message(msg)
                 server.quit()
@@ -889,7 +902,7 @@ def hod_forgot_password():
                 msg['From'] = HOD_SENDER_EMAIL
                 msg['To'] = email
 
-                server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
+                server = smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=15)
                 server.login(HOD_SENDER_EMAIL, HOD_APP_PASSWORD)
                 server.send_message(msg)
                 server.quit()
@@ -944,7 +957,7 @@ def faculty_forgot_password():
                 msg['From'] = FACULTY_SENDER_EMAIL
                 msg['To'] = email
 
-                server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
+                server = smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=15)
                 server.login(FACULTY_SENDER_EMAIL, FACULTY_APP_PASSWORD)
                 server.send_message(msg)
                 server.quit()
