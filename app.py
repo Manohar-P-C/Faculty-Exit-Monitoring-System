@@ -47,12 +47,21 @@ DB_USER = os.environ.get("DB_USER", "root")
 DB_PASSWORD = os.environ.get("DB_PASSWORD", "manohar2129")
 DB_NAME = os.environ.get("DB_NAME", "college_db")
 DB_PORT = int(os.environ.get("DB_PORT", 3306))
+DB_SSL = os.environ.get("DB_SSL", "false").lower() in ("true", "1", "required")
 
 def get_db():
     """Get a MySQL database connection."""
-    return mysql.connector.connect(
-        host=DB_HOST, user=DB_USER, password=DB_PASSWORD, database=DB_NAME, port=DB_PORT
-    )
+    config = {
+        'host': DB_HOST,
+        'user': DB_USER,
+        'password': DB_PASSWORD,
+        'database': DB_NAME,
+        'port': DB_PORT,
+    }
+    if DB_SSL:
+        config['ssl_disabled'] = False
+        config['ssl_verify_cert'] = False
+    return mysql.connector.connect(**config)
 
 # -----------------------
 # DB HELPER FUNCTIONS

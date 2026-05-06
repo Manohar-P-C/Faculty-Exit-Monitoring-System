@@ -1,6 +1,7 @@
 """
 Database Setup Script for Faculty Exit Monitoring System
 Creates MySQL database and tables for faculty, HODs, principal, and security.
+Supports Aiven cloud MySQL (SSL required).
 Run this ONCE before starting the application.
 """
 
@@ -16,37 +17,46 @@ DB_USER = os.environ.get("DB_USER", "root")
 DB_PASSWORD = os.environ.get("DB_PASSWORD", "manohar2129")
 DB_NAME = os.environ.get("DB_NAME", "college_db")
 DB_PORT = int(os.environ.get("DB_PORT", 3306))
+DB_SSL = os.environ.get("DB_SSL", "false").lower() in ("true", "1", "required")
+
+
+def get_connection(use_database=True):
+    """Get a MySQL connection with optional SSL support for Aiven."""
+    config = {
+        'host': DB_HOST,
+        'user': DB_USER,
+        'password': DB_PASSWORD,
+        'port': DB_PORT,
+    }
+    if use_database:
+        config['database'] = DB_NAME
+    if DB_SSL:
+        config['ssl_disabled'] = False
+        config['ssl_verify_cert'] = False
+    return mysql.connector.connect(**config)
 
 
 def create_database():
-    """Create the database if it doesn't exist."""
+    """Create the database if it doesn't exist.
+    On cloud providers like Aiven, the database may already exist (e.g. 'defaultdb'),
+    so this step is skipped gracefully if it fails."""
     try:
-        conn = mysql.connector.connect(
-            host=DB_HOST,
-            user=DB_USER,
-            password=DB_PASSWORD,
-            port=DB_PORT
-        )
+        conn = get_connection(use_database=False)
         cursor = conn.cursor()
         cursor.execute(f"CREATE DATABASE IF NOT EXISTS {DB_NAME}")
         print(f"[OK] Database '{DB_NAME}' created (or already exists).")
         cursor.close()
         conn.close()
     except Error as e:
-        print(f"[ERROR] Error creating database: {e}")
-        raise
+        # On Aiven free tier, you may not have permission to create databases.
+        # The default 'defaultdb' already exists.
+        print(f"[INFO] Skipping database creation (may already exist on cloud): {e}")
 
 
 def create_tables():
     """Create all required tables."""
     try:
-        conn = mysql.connector.connect(
-            host=DB_HOST,
-            user=DB_USER,
-            password=DB_PASSWORD,
-            database=DB_NAME,
-            port=DB_PORT
-        )
+        conn = get_connection()
         cursor = conn.cursor()
 
         # -----------------------
@@ -146,6 +156,7 @@ def create_tables():
                 scanned_by_exit VARCHAR(150),
                 scanned_by_entry VARCHAR(150),
                 reminder_sent TINYINT(1) DEFAULT 0,
+                warning_sent TINYINT(1) DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
             )
@@ -181,6 +192,26 @@ def create_tables():
         """)
         print("[OK] Table 'system_settings' created.")
 
+        # -----------------------
+        # LATE WARNINGS TABLE
+        # -----------------------
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS late_warnings (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                faculty_email VARCHAR(150) NOT NULL,
+                faculty_name VARCHAR(100) NOT NULL,
+                department VARCHAR(50) NOT NULL,
+                request_id VARCHAR(10) NOT NULL,
+                slot VARCHAR(50),
+                deadline DATETIME,
+                entry_time DATETIME,
+                minutes_late INT DEFAULT 0,
+                notified_principal TINYINT(1) DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        print("[OK] Table 'late_warnings' created.")
+
         conn.commit()
         cursor.close()
         conn.close()
@@ -194,13 +225,7 @@ def create_tables():
 def seed_default_data():
     """Insert default principal, HOD, security, and faculty accounts."""
     try:
-        conn = mysql.connector.connect(
-            host=DB_HOST,
-            user=DB_USER,
-            password=DB_PASSWORD,
-            database=DB_NAME,
-            port=DB_PORT
-        )
+        conn = get_connection()
         cursor = conn.cursor()
 
         # -----------------------
@@ -297,12 +322,20 @@ def seed_default_data():
                     "[FacultyName], [Department], [Slot], [Date], [Deadline]",
                     "Sent to Faculty/HOD 10 minutes before their exit deadline expires"
                 ),
+                (
+                    "late_warning",
+                    "Late Return Warning (Principal Notification)",
+                    "\u26a0 Late Return Warning - [FacultyName] ([Department])",
+                    "Dear [PrincipalName],\n\nThis is to notify you that a faculty/HOD member has returned LATE beyond their approved exit slot.\n\n--- Late Return Details ---\nFaculty Name : [FacultyName]\nDepartment   : [Department]\nTime Slot    : [Slot]\nDeadline     : [Deadline]\nEntry Time   : [EntryTime]\nMinutes Late : [MinutesLate]\nTotal Warnings : [TotalWarnings]\n----------------------------\n\nThis warning has been recorded and the faculty member has been notified on their dashboard.\n\nRegards,\nFaculty Exit Monitoring System\nSVIT College",
+                    "[FacultyName], [Department], [Slot], [Deadline], [EntryTime], [MinutesLate], [TotalWarnings], [PrincipalName]",
+                    "Sent to Principal when a faculty/HOD returns late after their approved exit deadline"
+                ),
             ]
             cursor.executemany("""
                 INSERT INTO email_templates (template_name, display_name, subject_template, body_template, available_placeholders, description)
                 VALUES (%s, %s, %s, %s, %s, %s)
             """, templates)
-            print("[OK] Default email templates added (3 templates).")
+            print("[OK] Default email templates added (5 templates).")
 
         conn.commit()
         cursor.close()
@@ -318,6 +351,8 @@ if __name__ == "__main__":
     print("=" * 50)
     print("Faculty Exit Monitoring System - DB Setup")
     print("=" * 50)
+    print(f"\nConnecting to: {DB_HOST}:{DB_PORT} (SSL: {DB_SSL})")
+    print(f"Database: {DB_NAME}")
     print()
     create_database()
     create_tables()
