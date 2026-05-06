@@ -184,7 +184,8 @@ def db_get_all_requests():
             "entry_scan_time": r.get("entry_scan_time"),
             "scanned_by_exit": r.get("scanned_by_exit"),
             "scanned_by_entry": r.get("scanned_by_entry"),
-            "reminder_sent": r.get("reminder_sent", 0)
+            "reminder_sent": r.get("reminder_sent", 0),
+            "rejection_reason": r.get("rejection_reason")
         })
     return results
 
@@ -199,7 +200,8 @@ def db_update_request(req_id, updates):
                     "principal_approved_at": "principal_approved_at",
                     "exit_scan_time": "exit_scan_time", "entry_scan_time": "entry_scan_time",
                     "scanned_by_exit": "scanned_by_exit", "scanned_by_entry": "scanned_by_entry",
-                    "reminder_sent": "reminder_sent", "warning_sent": "warning_sent"}
+                    "reminder_sent": "reminder_sent", "warning_sent": "warning_sent",
+                    "rejection_reason": "rejection_reason"}
         if key in col_map:
             set_clauses.append(f"{col_map[key]}=%s")
             values.append(val)
@@ -1081,6 +1083,7 @@ def faculty_dashboard():
         qr_code_entry=qr_code_entry if pass_generated else "",
         photo=photo,
         status=(last["status"] if last else None),
+        rejection_reason=last.get("rejection_reason") if last else None,
         exit_scan_time=last.get("exit_scan_time") if last else None,
         entry_scan_time=last.get("entry_scan_time") if last else None,
         warning_count=warning_count
@@ -1342,6 +1345,7 @@ def hod_dashboard():
         hod_status=hod_status,
         hod_exit_scan_time=hod_last.get("exit_scan_time") if hod_last else None,
         hod_entry_scan_time=hod_last.get("entry_scan_time") if hod_last else None,
+        hod_rejection_reason=hod_last.get("rejection_reason") if hod_last else None,
         warning_count=warning_count
     )
 
@@ -1421,6 +1425,7 @@ def hod_view_request(req_id):
         hod_status=hod_status,
         hod_exit_scan_time=hod_last.get("exit_scan_time") if hod_last else None,
         hod_entry_scan_time=hod_last.get("entry_scan_time") if hod_last else None,
+        hod_rejection_reason=hod_last.get("rejection_reason") if hod_last else None,
         warning_count=warning_count
     )
 
@@ -1468,13 +1473,17 @@ def hod_approve(req_id):
 # -----------------------
 # HOD DECLINE
 # -----------------------
-@app.route("/hod_decline/<req_id>")
+@app.route("/hod_decline/<req_id>", methods=["POST"])
 def hod_decline(req_id):
 
     if not session.get("hod"):
         return redirect("/hod_login")
 
-    db_update_request(req_id, {"status": "Rejected by HOD"})
+    reason = request.form.get("rejection_reason", "").strip()
+    if not reason:
+        reason = "No reason provided"
+
+    db_update_request(req_id, {"status": "Rejected by HOD", "rejection_reason": reason})
 
     return redirect("/hod_dashboard")
 
@@ -1902,9 +1911,12 @@ def approve(req_id):
 # -----------------------
 # DECLINE
 # -----------------------
-@app.route("/decline/<req_id>")
+@app.route("/decline/<req_id>", methods=["POST"])
 def decline(req_id):
-    db_update_request(req_id, {"status": "Rejected"})
+    reason = request.form.get("rejection_reason", "").strip()
+    if not reason:
+        reason = "No reason provided"
+    db_update_request(req_id, {"status": "Rejected", "rejection_reason": reason})
     return redirect("/principal_dashboard")
 
 

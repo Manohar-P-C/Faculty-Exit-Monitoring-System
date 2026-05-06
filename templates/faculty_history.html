@@ -118,6 +118,11 @@ tr:last-child td{border-bottom:none;}
             <span class="badge badge-approved">✅ {{ r.status }}</span>
         {% else %}
             <span class="badge badge-rejected">❌ {{ r.status }}</span>
+            {% if r.rejection_reason %}
+            <div style="margin-top:4px; font-size:11px; color:#f87171; max-width:200px; line-height:1.4;">
+                📝 <i>{{ r.rejection_reason }}</i>
+            </div>
+            {% endif %}
         {% endif %}
     </td>
     <td>{{r.start_time.strftime("%d %b %I:%M %p")}}</td>

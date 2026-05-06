@@ -426,10 +426,16 @@ button:disabled{
 <!-- ===== DIGITAL PASS / STATUS ===== -->
 
 {% if status %}
-{% set status_class = 'status-approved' if status == 'Approved' else 'status-rejected' if status == 'Rejected' else 'status-pending' %}
+{% set status_class = 'status-approved' if status == 'Approved' else 'status-rejected' if 'Rejected' in status else 'status-pending' %}
 <div class="status-box {{ status_class }}">
     Status: {{ status }}
 </div>
+{% if rejection_reason and 'Rejected' in status %}
+<div style="background:linear-gradient(135deg,#fee2e2,#fecaca); border:1px solid #f87171; padding:14px 18px; border-radius:10px; margin-top:10px;">
+    <div style="font-weight:bold; color:#991b1b; font-size:13px; margin-bottom:5px;">📝 Rejection Reason:</div>
+    <div style="color:#7f1d1d; font-size:14px; line-height:1.5;">{{ rejection_reason }}</div>
+</div>
+{% endif %}
 {% endif %}
 
 {% if pass_generated %}
