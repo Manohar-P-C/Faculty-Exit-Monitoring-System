@@ -259,23 +259,40 @@ def db_get_all_warnings():
 
 otps = {}
 
-# Email configs for OTP
-FACULTY_SENDER_EMAIL = "arjunkv350@gmail.com"
-FACULTY_APP_PASSWORD = "drikijmuicthhxcb"
+# Email config — uses environment variables with fallback to defaults
+SENDER_EMAIL = os.environ.get("SENDER_EMAIL", "arjunkv350@gmail.com")
+SENDER_PASSWORD = os.environ.get("SENDER_PASSWORD", "drikijmuicthhxcb")
 
-PRINCIPAL_SENDER_EMAIL = "arjunkv350@gmail.com"
-PRINCIPAL_APP_PASSWORD = "drikijmuicthhxcb"
+# Keep backward-compatible aliases (all point to the same sender)
+FACULTY_SENDER_EMAIL = SENDER_EMAIL
+FACULTY_APP_PASSWORD = SENDER_PASSWORD
+PRINCIPAL_SENDER_EMAIL = SENDER_EMAIL
+PRINCIPAL_APP_PASSWORD = SENDER_PASSWORD
+SECURITY_SENDER_EMAIL = SENDER_EMAIL
+SECURITY_APP_PASSWORD = SENDER_PASSWORD
+HOD_SENDER_EMAIL = SENDER_EMAIL
+HOD_APP_PASSWORD = SENDER_PASSWORD
+NOTIFICATION_SENDER_EMAIL = SENDER_EMAIL
+NOTIFICATION_APP_PASSWORD = SENDER_PASSWORD
 
-SECURITY_SENDER_EMAIL = "arjunkv350@gmail.com"
-SECURITY_APP_PASSWORD = "drikijmuicthhxcb"
 
-# HOD uses the same sender as principal for OTPs (can be changed)
-HOD_SENDER_EMAIL = "arjunkv350@gmail.com"
-HOD_APP_PASSWORD = "drikijmuicthhxcb"
+def send_email(to_email, subject, body):
+    """Send an email using Gmail SMTP (port 587 + STARTTLS).
+    Returns True on success, raises Exception on failure."""
+    msg = EmailMessage()
+    msg.set_content(body)
+    msg['Subject'] = subject
+    msg['From'] = SENDER_EMAIL
+    msg['To'] = to_email
 
-# Sender email used for notifications (faculty request alerts to HODs)
-NOTIFICATION_SENDER_EMAIL = "arjunkv350@gmail.com"
-NOTIFICATION_APP_PASSWORD = "drikijmuicthhxcb"
+    server = smtplib.SMTP('smtp.gmail.com', 587, timeout=15)
+    server.ehlo()
+    server.starttls()
+    server.ehlo()
+    server.login(SENDER_EMAIL, SENDER_PASSWORD)
+    server.send_message(msg)
+    server.quit()
+    return True
 
 
 def db_get_email_template(template_name):
@@ -336,16 +353,7 @@ def send_hod_notification_email(faculty_name, department, description, slot, req
         }
         subject, body = render_email_template("hod_notification", replacements)
 
-        msg = EmailMessage()
-        msg.set_content(body)
-        msg['Subject'] = subject
-        msg['From'] = NOTIFICATION_SENDER_EMAIL
-        msg['To'] = hod_email
-
-        server = smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=15)
-        server.login(NOTIFICATION_SENDER_EMAIL, NOTIFICATION_APP_PASSWORD)
-        server.send_message(msg)
-        server.quit()
+        send_email(hod_email, subject, body)
 
         print(f"[NOTIFY] Email notification sent to HOD {hod_name} ({hod_email}) for request by {faculty_name}")
 
@@ -385,16 +393,7 @@ def send_principal_notification_email(faculty_name, department, description, slo
             }
             subject, body = render_email_template("principal_notification", replacements)
 
-            msg = EmailMessage()
-            msg.set_content(body)
-            msg['Subject'] = subject
-            msg['From'] = NOTIFICATION_SENDER_EMAIL
-            msg['To'] = principal_email
-
-            server = smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=15)
-            server.login(NOTIFICATION_SENDER_EMAIL, NOTIFICATION_APP_PASSWORD)
-            server.send_message(msg)
-            server.quit()
+            send_email(principal_email, subject, body)
 
             print(f"[NOTIFY] Email notification sent to Principal {principal_name} ({principal_email}) for HOD-approved request by {faculty_name}")
 
@@ -419,16 +418,7 @@ def send_faculty_notification_email(faculty_email, faculty_name, department, slo
         }
         subject, body = render_email_template("faculty_approval", replacements)
 
-        msg = EmailMessage()
-        msg.set_content(body)
-        msg['Subject'] = subject
-        msg['From'] = NOTIFICATION_SENDER_EMAIL
-        msg['To'] = faculty_email
-
-        server = smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=15)
-        server.login(NOTIFICATION_SENDER_EMAIL, NOTIFICATION_APP_PASSWORD)
-        server.send_message(msg)
-        server.quit()
+        send_email(faculty_email, subject, body)
 
         print(f"[NOTIFY] Approval email sent to Faculty {faculty_name} ({faculty_email})")
 
@@ -454,16 +444,7 @@ def send_return_reminder_email(faculty_email, faculty_name, department, slot, re
         }
         subject, body = render_email_template("return_reminder", replacements)
 
-        msg = EmailMessage()
-        msg.set_content(body)
-        msg['Subject'] = subject
-        msg['From'] = NOTIFICATION_SENDER_EMAIL
-        msg['To'] = faculty_email
-
-        server = smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=15)
-        server.login(NOTIFICATION_SENDER_EMAIL, NOTIFICATION_APP_PASSWORD)
-        server.send_message(msg)
-        server.quit()
+        send_email(faculty_email, subject, body)
 
         print(f"[REMINDER] Return reminder email sent to {faculty_name} ({faculty_email}) — deadline: {deadline_str}")
 
@@ -500,16 +481,7 @@ def send_late_warning_email(faculty_name, department, slot, deadline, entry_time
             }
             subject, body = render_email_template("late_warning", replacements)
 
-            msg = EmailMessage()
-            msg.set_content(body)
-            msg['Subject'] = subject
-            msg['From'] = NOTIFICATION_SENDER_EMAIL
-            msg['To'] = principal["email"]
-
-            server = smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=15)
-            server.login(NOTIFICATION_SENDER_EMAIL, NOTIFICATION_APP_PASSWORD)
-            server.send_message(msg)
-            server.quit()
+            send_email(principal["email"], subject, body)
 
             print(f"[WARNING EMAIL] Late warning sent to Principal {principal['name']} ({principal['email']}) for {faculty_name}")
 
@@ -715,21 +687,11 @@ def principal_forgot_password():
             otps[email] = otp
             
             try:
-                msg = EmailMessage()
-                msg.set_content(f"Your password reset OTP is: {otp}")
-                msg['Subject'] = 'Principal Password Reset OTP'
-                msg['From'] = PRINCIPAL_SENDER_EMAIL
-                msg['To'] = email
-
-                server = smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=15)
-                server.login(PRINCIPAL_SENDER_EMAIL, PRINCIPAL_APP_PASSWORD)
-                server.send_message(msg)
-                server.quit()
-                
+                send_email(email, 'Principal Password Reset OTP', f'Your password reset OTP is: {otp}')
                 session["principal_reset_email"] = email
                 return redirect("/principal_verify_otp")
             except Exception as e:
-                return render_template("forgot_password.html", error=f"Failed to send email. Check your APP_PASSWORD in app.py. Error: {e}")
+                return render_template("forgot_password.html", error=f"Failed to send email. Error: {e}")
         else:
             return render_template("forgot_password.html", error="Email not found.")
             
@@ -790,21 +752,11 @@ def security_forgot_password():
             otps[email] = otp
             
             try:
-                msg = EmailMessage()
-                msg.set_content(f"Your password reset OTP is: {otp}")
-                msg['Subject'] = 'Security Password Reset OTP'
-                msg['From'] = SECURITY_SENDER_EMAIL
-                msg['To'] = email
-
-                server = smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=15)
-                server.login(SECURITY_SENDER_EMAIL, SECURITY_APP_PASSWORD)
-                server.send_message(msg)
-                server.quit()
-                
+                send_email(email, 'Security Password Reset OTP', f'Your password reset OTP is: {otp}')
                 session["security_reset_email"] = email
                 return redirect("/security_verify_otp")
             except Exception as e:
-                return render_template("forgot_password.html", error=f"Failed to send email. Check your APP_PASSWORD in app.py. Error: {e}")
+                return render_template("forgot_password.html", error=f"Failed to send email. Error: {e}")
         else:
             return render_template("forgot_password.html", error="Email not found.")
             
@@ -896,17 +848,7 @@ def hod_forgot_password():
             otps[email] = otp
             
             try:
-                msg = EmailMessage()
-                msg.set_content(f"Your HOD password reset OTP is: {otp}")
-                msg['Subject'] = 'HOD Password Reset OTP'
-                msg['From'] = HOD_SENDER_EMAIL
-                msg['To'] = email
-
-                server = smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=15)
-                server.login(HOD_SENDER_EMAIL, HOD_APP_PASSWORD)
-                server.send_message(msg)
-                server.quit()
-                
+                send_email(email, 'HOD Password Reset OTP', f'Your HOD password reset OTP is: {otp}')
                 session["hod_reset_email"] = email
                 return redirect("/hod_verify_otp")
             except Exception as e:
@@ -951,21 +893,11 @@ def faculty_forgot_password():
             otps[email] = otp
             
             try:
-                msg = EmailMessage()
-                msg.set_content(f"Your password reset OTP is: {otp}")
-                msg['Subject'] = 'Password Reset OTP'
-                msg['From'] = FACULTY_SENDER_EMAIL
-                msg['To'] = email
-
-                server = smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=15)
-                server.login(FACULTY_SENDER_EMAIL, FACULTY_APP_PASSWORD)
-                server.send_message(msg)
-                server.quit()
-                
+                send_email(email, 'Password Reset OTP', f'Your password reset OTP is: {otp}')
                 session["reset_email"] = email
                 return redirect("/verify_otp")
             except Exception as e:
-                return render_template("forgot_password.html", error=f"Failed to send email. Ensure you set a valid APP_PASSWORD in app.py. Error: {e}")
+                return render_template("forgot_password.html", error=f"Failed to send email. Error: {e}")
         else:
             return render_template("forgot_password.html", error="Email not found.")
             
